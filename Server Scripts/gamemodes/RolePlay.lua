@@ -4,12 +4,14 @@ strings.chat={}
 strings.chat.SAYS="sagt"
 strings.chat.WHISPERS="fluestert"
 strings.chat.SHOUTS="ruft"
+strings.chat.OFFTOPIC="////"
 
 -- Talk Modes
 local talkModes = {}
 talkModes.TALK=0
 talkModes.WHISPER=1
 talkModes.SHOUT=2
+talkModes.OFFTOPIC=3
 
 
 -- Chat Settings
@@ -18,6 +20,7 @@ chatSettings.distances={}
 chatSettings.distances.WHISPER=200 --distances are in cm (hopefully)
 chatSettings.distances.TALK=1000
 chatSettings.distances.SHOUT=2000
+chatSettings.distances.OFFTOPIC=2000
 
 chatSettings.limits={}
 chatSettings.limits.MAX_CHARS_PER_LINE=30
@@ -26,7 +29,7 @@ local waypoints = {
 	["center"]={x=0,y=0,z=0,angle=0},
 	["baum"]={x=4175,y=35,z=-809,angle=216},
 }
-local players = {}
+local player = {}
 --players[0].talkMode=talkModes.TALK
 --players[0].isDeaf=false
 
@@ -41,6 +44,17 @@ function string.ends(String,End)
 end
 --util end
 
+function ConnectPlayer(playerid)
+	player[playerid]={
+		talkMode=talkModes.TALK,
+		isDeaf=false
+	};
+	
+end
+
+function DisconnectPlayer(playerid)
+	player[playerid]=nil;
+end
 function SayText(playerid, text, mode)	
 	--normal talking distance as default
 	local distance=chatSettings.distances.TALK
@@ -57,7 +71,10 @@ function SayText(playerid, text, mode)
 		sayString=strings.chat.WHISPERS
 	elseif mode==talkModes.SHOUT then
 		distance=chatSettings.distances.SHOUT
-		sayString=strings.chat.SHOUTS
+		sayString=strings.chat.SHOUTS	
+	elseif mode==talkModes.OFFTOPIC then
+		distance=chatSettings.distances.OFFTOPIC
+		sayString=strings.chat.OFFTOPIC
 	end
 	
 	
@@ -83,7 +100,7 @@ function SayText(playerid, text, mode)
 	
 	local name=GetPlayerName(playerid)
 	for i = 0, GetMaxPlayers()-1 do 
-		if IsPlayerConnected(i) == 1 --[[and not players[playerid].isDeaf--]] then
+		if IsPlayerConnected(i) == 1 and not player[i].isDeaf then
 			if GetDistancePlayers(playerid,i) < distance then	
 				for k,line in ipairs(lines) do
 					SendPlayerMessage(i,red,green,blue,string.format("%s %s: %s",name,sayString,line));
@@ -96,6 +113,7 @@ end
 
 function Init()
 	EnableChat(0)
+	EnableNicknameID(0)
 end
 
 function DebugInfo(playerid,text)
@@ -179,6 +197,28 @@ commandList = {
 	["waypoints"] = function (playerid,params)
 		PrintWaypoints(playerid,params)	
 	end,
+	["w"] = function (playerid,params)
+		SayText(playerid, params, talkModes.WHISPER)
+	end,
+	["s"] = function (playerid,params)
+		SayText(playerid, params, talkModes.SHOUT)
+	end,
+	["ot"] = function (playerid,params)
+		SayText(playerid, params, talkModes.OFFTOPIC)
+	end,
+	["won"] = function (playerid,params)
+		player[playerid].talkMode=talkModes.WHISPER
+	end,
+	["oton"] = function (playerid,params)
+		player[playerid].talkMode=talkModes.OFFTOPIC
+	end,
+	["son"] = function (playerid,params)
+		player[playerid].talkMode=talkModes.SHOUT
+	end,
+	["ton"] = function (playerid,params)
+		player[playerid].talkMode=talkModes.TALK
+	end
+	
 }
 --alternative commands
 commandList.setpos=commandList.goto
@@ -211,11 +251,11 @@ function OnPlayerSelectClass(playerid, classid)
 end
 
 function OnPlayerConnect(playerid)
- 
+	ConnectPlayer(playerid)
 end
 
 function OnPlayerDisconnect(playerid, reason)
-
+	DisconnectPlayer(playerid)
 end
 
 function OnPlayerSpawn(playerid, classid)
@@ -239,14 +279,14 @@ function OnPlayerDeath(playerid, killerid)
 end
 
 function OnPlayerText(playerid, text)	
-	SayText(playerid, text, talkModes.SHOUT);
+	SayText(playerid, text, player[playerid].talkMode)
 end
 
 function OnPlayerCommandText(playerid, cmdtext)
-	local cmd,params = GetCommand(cmdtext);
-	cmd=string.sub (cmd, 2);	
-	DebugInfo(playerid,cmdtext)
-	commandList[cmd](playerid,params);
+	local cmd,params = GetCommand(cmdtext)
+	cmd=string.sub (cmd, 2)	
+	--DebugInfo(playerid,cmdtext)
+	commandList[cmd](playerid,params)
 end
 
 function OnPlayerChangeWorld(playerid, world)
