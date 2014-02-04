@@ -20,11 +20,26 @@ chatSettings.distances.TALK=1000
 chatSettings.distances.SHOUT=2000
 
 chatSettings.limits={}
-chatSettings.limits.MAX_CHARS_PER_LINE=10
+chatSettings.limits.MAX_CHARS_PER_LINE=30
 
+local waypoints = {
+	["center"]={x=0,y=0,z=0,angle=0},
+	["baum"]={x=4175,y=35,z=-809,angle=216},
+}
 local players = {}
 --players[0].talkMode=talkModes.TALK
 --players[0].isDeaf=false
+
+--util start
+
+function string.starts(String,Start)
+   return string.sub(String,1,string.len(Start))==Start
+end
+
+function string.ends(String,End)
+   return End=='' or string.sub(String,-string.len(End))==End
+end
+--util end
 
 function SayText(playerid, text, mode)	
 	--normal talking distance as default
@@ -71,18 +86,113 @@ function SayText(playerid, text, mode)
 		if IsPlayerConnected(i) == 1 --[[and not players[playerid].isDeaf--]] then
 			if GetDistancePlayers(playerid,i) < distance then	
 				for k,line in ipairs(lines) do
-					SendPlayerMessage(i,red,green,blue,string.format("%s %s%s %s",name,sayString,":",line));
+					SendPlayerMessage(i,red,green,blue,string.format("%s %s: %s",name,sayString,line));
 				end				
 			end
 		end
 	end
 end
 
+
+function Init()
+	EnableChat(0)
+end
+
+function DebugInfo(playerid,text)
+	SendPlayerMessage(playerid,0,255,0, string.format("%s %s","###",text))
+end
+
+--prints the current coordinates
+function GetPos(playerid)
+	local x,y,z = GetPlayerPos(playerid);
+	local angle = GetPlayerAngle(playerid);
+	local message = string.format("Current position (x,y,z): %.0f %.0f %.0f Angle: %.1f",x,y,z,angle)
+	DebugInfo(playerid,message)
+end
+
+--teleports to coordinates x y z
+--if only one parameter is given:
+--parameter is a number = teleports to player with given id
+--parameter is string = teleports to waypoint, if set in waypoints table
+function SetPos(playerid,params)
+
+	local result,par1,par2,par3 = sscanf(params,"sss")
+	
+	if result==0 then --to get single parameter, if not all three are used
+		result,par1 = sscanf(params,"s")
+	end
+	
+	if result==1 and par1~=nil then
+		--number, no waypoint
+		if tonumber(par1) ~= nil then	
+		
+			if(par3~=nil) then--3 params: xyz coordinates
+				SetPlayerPos(playerid,tonumber(par1),tonumber(par2),tonumber(par3));
+			else --one param: player id
+				if IsPlayerConnected(tonumber(par1)) == 1 then
+					local x,y,z = GetPlayerPos(tonumber(par1));
+					SetPlayerPos(playerid,x,y,z);					
+				end
+			end
+		else --no number, no maybe waypoint
+			--is in waypoint table?
+			
+			if(waypoints[par1] ~= nil) then
+				SetPlayerPos(playerid,waypoints[par1].x,waypoints[par1].y,waypoints[par1].z);
+				if waypoints[par1].angle ~= nil then -- optional angle
+					SetPlayerAngle(playerid,waypoints[par1].angle);
+				end
+			else -- no waypoint error
+				DebugInfo(playerid,string.format("Waypoint %s not found",par1))
+			end
+		end
+		
+	end
+	
+end
+--lists all commands
+function PrintHelp(playerid,params)
+	
+	local tt = {}
+	for key,value in pairs(commandList) do
+		tt[#tt+1]=key
+	end
+	DebugInfo(playerid,table.concat(tt,", "))
+end
+--lists all waypoints
+function PrintWaypoints(playerid,params)
+	
+	local tt = {}
+	for key,value in pairs(waypoints) do
+		tt[#tt+1]=string.format("%s %.0f,%.0f,%.0f",key,value.x,value.y,value.z)
+	end
+	DebugInfo(playerid,table.concat(tt,"/ "))
+end
+--list of all commands in chat console /command
+commandList = {
+	["getpos"] = function (playerid,params)
+		GetPos(playerid)	
+	end,
+	["goto"] = function (playerid,params)
+		SetPos(playerid,params)	
+	end,
+	["waypoints"] = function (playerid,params)
+		PrintWaypoints(playerid,params)	
+	end,
+}
+--alternative commands
+commandList.setpos=commandList.goto
+
+commandList.help= function (playerid,params)
+					PrintHelp(playerid,params);
+				end
 function OnGamemodeInit()
 	
 	print("--------------------")
 	print("Role Play Mode");
 	print("--------------------")
+	
+	Init()
 end
 
 function OnGamemodeExit()
@@ -128,14 +238,15 @@ function OnPlayerDeath(playerid, killerid)
  
 end
 
-function OnPlayerText(playerid, text)
-
+function OnPlayerText(playerid, text)	
 	SayText(playerid, text, talkModes.SHOUT);
-	--SendPlayerMessage(playerid,255,255,255,string.format("%s %s %s %s.","hans","kanns",":",text));	
 end
 
 function OnPlayerCommandText(playerid, cmdtext)
-	
+	local cmd,params = GetCommand(cmdtext);
+	cmd=string.sub (cmd, 2);	
+	DebugInfo(playerid,cmdtext)
+	commandList[cmd](playerid,params);
 end
 
 function OnPlayerChangeWorld(playerid, world)
