@@ -1,30 +1,46 @@
 -- Constants
 local strings = {}
-strings.chat={}
-strings.chat.SAYS="sagt"
-strings.chat.WHISPERS="fluestert"
-strings.chat.SHOUTS="ruft"
-strings.chat.OFFTOPIC="////"
+strings.chat={
+	SAYS="sagt",
+	WHISPERS="fluestert",
+	SHOUTS="ruft",
+	OFFTOPIC="////",
+	ME="",
+	MESSAGED_YOU="schreibt dir"
+}
+strings.error={
+	NO_SUCH_ID="Kein Spieler mit id",
+	NO_SUCH_WAYPOINT="Kein Wegpunkt gefunden:",
+}
 
+strings.debug={
+	CURRENT_POS="Aktuelle Position (x,y,z,Winkel):",
+	JOINED_SERVER="Spieler tritt dem Spiel bei:",
+	LEFT_SERVER="Spieler verlässt das Spiel:",
+}
 -- Talk Modes
-local talkModes = {}
-talkModes.TALK=0
-talkModes.WHISPER=1
-talkModes.SHOUT=2
-talkModes.OFFTOPIC=3
-
-
+local talkModes = {
+	TALK=0,
+	WHISPER=1,
+	SHOUT=2,
+	OFFTOPIC=3,
+	ME=4,
+}
 -- Chat Settings
 local chatSettings = {}
-chatSettings.distances={}
-chatSettings.distances.WHISPER=200 --distances are in cm (hopefully)
-chatSettings.distances.TALK=1000
-chatSettings.distances.SHOUT=2000
-chatSettings.distances.OFFTOPIC=2000
+chatSettings.distances={
+	WHISPER=220, --distances are in cm (hopefully)
+	TALK=1000,
+	SHOUT=17000,
+	OFFTOPIC=1000,
+	ME=1000,
+}
 
-chatSettings.limits={}
-chatSettings.limits.MAX_CHARS_PER_LINE=30
 
+
+chatSettings.limits={
+	MAX_CHARS_PER_LINE=50,
+}
 local waypoints = {
 	["center"]={x=0,y=0,z=0,angle=0},
 	["baum"]={x=4175,y=35,z=-809,angle=216},
@@ -32,7 +48,7 @@ local waypoints = {
 local player = {}
 --players[0].talkMode=talkModes.TALK
 --players[0].isDeaf=false
-
+	
 --util start
 
 function string.starts(String,Start)
@@ -42,6 +58,25 @@ end
 function string.ends(String,End)
    return End=='' or string.sub(String,-string.len(End))==End
 end
+
+function string.breakLines(String,Limit)
+	local lines={}
+	local offset=0;
+	local textLenght=string.len(String);
+	
+	
+	while true do
+		local found=string.find(String," ",offset+Limit,true)		
+		if found==nil then
+			table.insert(lines, string.sub (String, offset))
+			break
+		else
+			table.insert(lines, string.sub (String, offset, found))
+			offset=found+1
+		end
+	end
+	return lines;
+end
 --util end
 
 function ConnectPlayer(playerid)
@@ -50,15 +85,20 @@ function ConnectPlayer(playerid)
 		isDeaf=false
 	};
 	
+	Broadcast(playerid,string.format("%s %s", strings.debug.JOINED_SERVER,GetPlayerName(playerid)))
 end
 
 function DisconnectPlayer(playerid)
+	Broadcast(playerid,string.format("%s %s", strings.debug.LEFT_SERVER,GetPlayerName(playerid)))
 	player[playerid]=nil;
+	
 end
 function SayText(playerid, text, mode)	
 	--normal talking distance as default
 	local distance=chatSettings.distances.TALK
 	local sayString=strings.chat.SAYS
+	local colon=":"
+	local name=GetPlayerName(playerid)
 	-- dead can't talk
 	if IsDead(playerid) == 1 then
 		return
@@ -75,36 +115,24 @@ function SayText(playerid, text, mode)
 	elseif mode==talkModes.OFFTOPIC then
 		distance=chatSettings.distances.OFFTOPIC
 		sayString=strings.chat.OFFTOPIC
+		colon="";
+	elseif mode==talkModes.ME then
+		distance=chatSettings.distances.ME
+		sayString=strings.chat.ME	
+		colon="";		
+		text=string.format("(%s %s)",name, text)
+		name="";
 	end
 	
 	
 	--display text in player color
 	local red,green,blue = GetPlayerColor(playerid)
 	
-	--auto line breaks for passionate writers
-	local lines={}
-	local offset=0;
-	local textLenght=string.len(text);
-	local finish=false;
-	
-	while true do
-		local found=string.find(text," ",offset+chatSettings.limits.MAX_CHARS_PER_LINE,true)		
-		if found==nil then
-			table.insert(lines, string.sub (text, offset))
-			break
-		else
-			table.insert(lines, string.sub (text, offset, found))
-			offset=found+1
-		end
-	end
-	
-	local name=GetPlayerName(playerid)
+	local message=string.format("%s %s%s %s",name,sayString,colon,text);
 	for i = 0, GetMaxPlayers()-1 do 
 		if IsPlayerConnected(i) == 1 and not player[i].isDeaf then
-			if GetDistancePlayers(playerid,i) < distance then	
-				for k,line in ipairs(lines) do
-					SendPlayerMessage(i,red,green,blue,string.format("%s %s: %s",name,sayString,line));
-				end				
+			if GetDistancePlayers(playerid,i) < distance then					
+				SendMessageLines(i,red,green,blue,message)		
 			end
 		end
 	end
@@ -116,15 +144,35 @@ function Init()
 	EnableNicknameID(0)
 end
 
-function DebugInfo(playerid,text)
-	SendPlayerMessage(playerid,0,255,0, string.format("%s %s","###",text))
+--breaks chat message in multiple lines if necessary and prints it
+function SendMessageLines(playerid,red,green,blue,message)
+	local lines=string.breakLines(message,chatSettings.limits.MAX_CHARS_PER_LINE)
+	for k,line in ipairs(lines) do
+		SendPlayerMessage(playerid,red,green,blue, line)		
+	end	
+end
+
+function DebugInfo(playerid,text,broadcast)
+	
+	local message=string.format("%s %s","##",text)
+	local lines=string.breakLines(message,chatSettings.limits.MAX_CHARS_PER_LINE)
+	if broadcast then
+		for i = 0, GetMaxPlayers()-1 do 
+			if IsPlayerConnected(i) == 1 then				
+				SendMessageLines(i,0,255,0,message)						
+			end
+		end
+	else
+		SendMessageLines(playerid,0,255,0,message)						
+	end
+	
 end
 
 --prints the current coordinates
 function GetPos(playerid)
 	local x,y,z = GetPlayerPos(playerid);
 	local angle = GetPlayerAngle(playerid);
-	local message = string.format("Current position (x,y,z): %.0f %.0f %.0f Angle: %.1f",x,y,z,angle)
+	local message = string.format("%s %.0f %.0f %.0f   %.1f",strings.debug.CURRENT_POS,x,y,z,angle)
 	DebugInfo(playerid,message)
 end
 
@@ -161,7 +209,7 @@ function SetPos(playerid,params)
 					SetPlayerAngle(playerid,waypoints[par1].angle);
 				end
 			else -- no waypoint error
-				DebugInfo(playerid,string.format("Waypoint %s not found",par1))
+				DebugInfo(playerid,string.format("%s %s",string.error.NO_SUCH_WAYPOINT,par1))
 			end
 		end
 		
@@ -185,6 +233,58 @@ function PrintWaypoints(playerid,params)
 		tt[#tt+1]=string.format("%s %.0f,%.0f,%.0f",key,value.x,value.y,value.z)
 	end
 	DebugInfo(playerid,table.concat(tt,"/ "))
+end
+
+function SendPersonalMessage(playerid,params)
+	local result,recipient,message = sscanf(params,"ds")
+	if result==1 then
+		if IsPlayerConnected(recipient) == 1 then
+			local senderName=GetPlayerName(playerid)
+			message=string.format("(%s (%s) %s: %s)",senderName,recipient,strings.chat.MESSAGED_YOU,message)		
+			SendMessageLines(recipient,255,155,95,message)					
+		else
+			DebugInfo(playerid,string.format("%s %s",strings.error.NO_SUCH_ID,playerid))
+		end
+	end
+end
+
+function Broadcast(playerid,params)
+	DebugInfo(playerid, params,true)
+end
+function InsertItem(playerid,params)
+	local result,itemInstance,amount = sscanf(params,"sd")
+	if result==0 then
+		result,itemInstance = sscanf(params,"s")
+		amount=1
+	end
+	
+	if result==1 then
+		local x,y,z = GetPlayerPos(playerid);
+		local rads =  math.rad(GetPlayerAngle(playerid));
+		local distance=60
+		local s=math.sin(rads)
+		local c=math.cos(rads)
+		local xnew = 0 * c + 100 * s;
+		local znew = 0 * s + 100 * c;
+		
+		CreateItem(itemInstance, amount, x+xnew, y, z+znew, "NEWWORLD\\NEWWORLD.ZEN")
+	end
+end
+
+function SpawnNPC (playerid,params)
+	local result,NPCInstance = sscanf(params,"s")
+	if result==1 then
+		local x,y,z = GetPlayerPos(playerid);
+		local rads =  math.rad(GetPlayerAngle(playerid));
+		local npc = CreateNPC("test");
+		SpawnPlayer(npc);
+		SetPlayerInstance(npc,NPCInstance);
+		SetPlayerMaxHealth(npc,20);
+		SetPlayerHealth(npc,20);
+		SetPlayerStrength(npc,10);
+		SetPlayerPos(npc,x,y,z);
+		
+	end
 end
 --list of all commands in chat console /command
 commandList = {
@@ -217,8 +317,30 @@ commandList = {
 	end,
 	["ton"] = function (playerid,params)
 		player[playerid].talkMode=talkModes.TALK
-	end
-	
+	end,
+	["me"] = function (playerid,params)
+		SayText(playerid, params, talkModes.ME)
+	end,
+	["meon"] = function (playerid,params)
+		player[playerid].talkMode=talkModes.ME
+	end,
+	["pm"] = function (playerid,params)
+		SendPersonalMessage(playerid,params)
+	end,
+	["all"] = function (playerid,params)
+		Broadcast(playerid,params)
+	end,
+	["insert"] = function (playerid,params)
+		InsertItem(playerid,params)
+	end,
+	["spawn"] = function (playerid,params)
+		SpawnNPC(playerid,params)
+	end,
+	["last"] = function (playerid,params)
+		if(player[playerid].lastCommand~=nil) then
+			OnPlayerCommandText(playerid,player[playerid].lastCommand)
+		end
+	end,
 }
 --alternative commands
 commandList.setpos=commandList.goto
@@ -284,9 +406,16 @@ end
 
 function OnPlayerCommandText(playerid, cmdtext)
 	local cmd,params = GetCommand(cmdtext)
+	if(params==nil) then params="" end
 	cmd=string.sub (cmd, 2)	
 	--DebugInfo(playerid,cmdtext)
-	commandList[cmd](playerid,params)
+	if(commandList[cmd]~=nil) then
+		commandList[cmd](playerid,params)
+	end
+	
+	if(cmd~="last") then
+		player[playerid].lastCommand=cmdtext
+	end
 end
 
 function OnPlayerChangeWorld(playerid, world)
