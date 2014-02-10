@@ -77,7 +77,7 @@ function DebugInfo(playerid,text,broadcast,r,g,b)
 		r,g,b=0,255,0
 	end
 	
-	local message=string.format(" # %s %s",text)
+	local message=string.format(" # %s",text)
 	local lines=string.breakLines(message,settings.chat.limits.MAX_CHARS_PER_LINE)
 	if broadcast then
 		for i = 0, GetMaxPlayers()-1 do 
