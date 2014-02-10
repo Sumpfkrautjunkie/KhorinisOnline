@@ -23,5 +23,6 @@ strings = {
 		CURRENT_POS="Aktuelle Position (x,y,z,Winkel):",
 		JOINED_SERVER="Spieler tritt dem Spiel bei:",
 		LEFT_SERVER="Spieler verlässt das Spiel:",
+		KICKED="wurde gekickt",
 	}
 }

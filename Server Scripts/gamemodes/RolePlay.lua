@@ -15,7 +15,8 @@ function Init()
 	CreateItemAlias() 
 	EnableChat(0)
 	EnableNicknameID(0)
-	SetRespawnTime(20 * 1000)
+	EnableDropAfterDeath(1)
+	SetRespawnTime(2147483647)
 	
 end
 

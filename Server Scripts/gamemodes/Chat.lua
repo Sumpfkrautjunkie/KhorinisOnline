@@ -7,6 +7,13 @@ talkModes = {
 	OFFTOPIC=3,
 	ME=4,
 }
+
+broadCastModes = {
+	SERVER_ENTER=0,
+	SERVER_LEAVE=1,
+	ANNOUNCEMENT=2,
+	DEFAULT=3,	
+}
 --breaks chat message in multiple lines if necessary and prints it in the chat
 function SendMessageLines(playerid,red,green,blue,message)
 	local lines=string.breakLines(message,settings.chat.limits.MAX_CHARS_PER_LINE)
@@ -64,18 +71,22 @@ end
 
 --simple information print, not part of the RP
 -- broadcast: true/false: display message to all players
-function DebugInfo(playerid,text,broadcast)
+function DebugInfo(playerid,text,broadcast,r,g,b)
 	
-	local message=string.format("%s %s","##",text)
+	if(r==nil or g==nil or b==nil)then
+		r,g,b=0,255,0
+	end
+	
+	local message=string.format(" # %s %s",text)
 	local lines=string.breakLines(message,settings.chat.limits.MAX_CHARS_PER_LINE)
 	if broadcast then
 		for i = 0, GetMaxPlayers()-1 do 
 			if IsPlayerConnected(i) == 1 then				
-				SendMessageLines(i,0,255,0,message)						
+				SendMessageLines(i,r,g,b,message)						
 			end
 		end
 	else
-		SendMessageLines(playerid,0,255,0,message)						
+		SendMessageLines(playerid,r,g,b,message)						
 	end
 	
 end
@@ -98,6 +109,15 @@ function SendPersonalMessage(playerid,params)
 end
 --sends a non RP message to everyone
 --params: message
-function Broadcast(playerid,params)
-	DebugInfo(playerid, params,true)
+function Broadcast(playerid,params,color)
+	if(color==broadCastModes.SERVER_ENTER)then
+		r,g,b=50,160,50
+	elseif(color==broadCastModes.SERVER_LEAVE)then
+		r,g,b=160,50,50
+	elseif(color==broadCastModes.ANNOUNCEMENT)then
+		r,g,b=255,0,0
+	else
+		r,g,b=255,255,255
+	end
+	DebugInfo(playerid, params,true, r,g,b)
 end

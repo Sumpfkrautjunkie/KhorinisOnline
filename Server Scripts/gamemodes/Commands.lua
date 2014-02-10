@@ -78,6 +78,7 @@ function PrintWaypoints(playerid,params)
 	end
 	DebugInfo(playerid,table.concat(tt,"/ "))
 end
+--lists all items
 function PrintItems(playerid,params)
 	
 	local tt = {}
@@ -87,7 +88,7 @@ function PrintItems(playerid,params)
 	DebugInfo(playerid,table.concat(tt,", "))
 	
 end
-
+--get coordinates for point distance cm ahead of playerid
 function GetPointAhead(playerid,distance)
 	local x,y,z = GetPlayerPos(playerid);
 	local rads =  math.rad(GetPlayerAngle(playerid));
@@ -99,7 +100,7 @@ function GetPointAhead(playerid,distance)
 	
 	return xnew,y,znew
 end
-
+--inserts item (amount) in front of playerid
 function InsertItem(playerid,params)
 	local result,itemInstance,amount = sscanf(params,"sd")
 	if result==0 then
@@ -113,14 +114,14 @@ function InsertItem(playerid,params)
 		CreateItem(itemInstance, amount, x, y, z, settings.global.WORLD)
 	end
 end
-
+--teleports playerid 4m ahead
 function JumpForward(playerid,params)
 	
 	local x,y,z =GetPointAhead(playerid,400)
 	SetPlayerPos(playerid,x,y+80,z)
 	
 end
-
+--spawns an npc
 function SpawnNPC (playerid,params)
 	local result,NPCInstance = sscanf(params,"s")
 	if result==1 then
@@ -136,7 +137,7 @@ function SpawnNPC (playerid,params)
 		
 	end
 end
-
+--kills player in focus
 function Kill(playerid,params)
 	
 	local focusid=GetFocus(playerid);
@@ -145,7 +146,7 @@ function Kill(playerid,params)
 	end
 	
 end
-
+--revives player in focus
 function Revive(playerid,params)
 	
 	local focusid=GetFocus(playerid);
@@ -158,7 +159,7 @@ function Revive(playerid,params)
 	end
 	
 end
-
+--sets the game time 
 function SetGameTime(playerid,params)
 	
 	local result,hour,minute = sscanf(params,"dd")
@@ -172,7 +173,22 @@ function SetGameTime(playerid,params)
 	end
 	
 end
+--kicks player with id
+function KickPlayer(playerid,params)
 
+	local result,kickid = sscanf(params,"d")
+	if kickid >= 0 and IsPlayerConnected(kickid) == 1 then
+		Kick(kickid);
+		local name=GetPlayerName(kickid)
+		Broadcast(playerid,string.format("%s (%d) %s",name, kickid,strings.debug.KICKED))
+	end
+end
+--transforms player into instance	
+function TransformTo(playerid,params)
+
+	local result,instance = sscanf(params,"s")
+	SetPlayerInstance(playerid,instance)
+end
 --list of all commands in chat console /command
 commandList = {
 	["getpos"] = function (playerid,params)
@@ -261,6 +277,12 @@ commandList = {
 	end,
 	["settime"] = function (playerid,params)
 		SetGameTime(playerid,params)
+	end,
+	["kick"] = function (playerid,params)
+		KickPlayer(playerid,params)
+	end,
+	["transform"] = function (playerid,params)
+		TransformTo(playerid,params)
 	end,
 }
 --alternative commands
